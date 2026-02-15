@@ -8,7 +8,6 @@ body{
   margin:0;
   background:black;
   overflow:hidden;
-  font-family:Arial;
 }
 canvas{
   position:absolute;
@@ -49,8 +48,19 @@ let amplitude = 0;
 let stream = null;
 let audioContext = null;
 let analyser = null;
-let ringRotation = 0;
 let listening = false;
+let ringRotation = 0;
+
+// Smooth pupil movement
+let pupilTargetX = 0;
+let pupilTargetY = 0;
+let pupilX = 0;
+let pupilY = 0;
+
+setInterval(()=>{
+  pupilTargetX = (Math.random()-0.5)*20;
+  pupilTargetY = (Math.random()-0.5)*10;
+},2500);
 
 async function startMic(){
   stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -83,7 +93,12 @@ function updateAudio(){
     const v=(dataArray[i]-128)/128;
     sum+=v*v;
   }
-  amplitude=Math.sqrt(sum/dataArray.length)*150;
+
+  let raw = Math.sqrt(sum/dataArray.length)*600;
+
+  // Smooth amplitude
+  amplitude = amplitude*0.7 + raw*0.3;
+
   requestAnimationFrame(updateAudio);
 }
 
@@ -96,26 +111,40 @@ function draw(){
   const leftX=w*0.35;
   const rightX=w*0.65;
 
+  // Smooth pupil movement interpolation
+  pupilX += (pupilTargetX - pupilX)*0.05;
+  pupilY += (pupilTargetY - pupilY)*0.05;
+
   // Eyes
   ctx.fillStyle="#4da6ff";
   ctx.beginPath();
-  ctx.arc(leftX,eyeY,60,0,Math.PI*2);
+  ctx.arc(leftX,eyeY,65,0,Math.PI*2);
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(rightX,eyeY,60,0,Math.PI*2);
+  ctx.arc(rightX,eyeY,65,0,Math.PI*2);
   ctx.fill();
 
-  // Dark rotating rings
+  // Pupils
+  ctx.fillStyle="#001933";
+  ctx.beginPath();
+  ctx.arc(leftX+pupilX,eyeY+pupilY,22,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(rightX+pupilX,eyeY+pupilY,22,0,Math.PI*2);
+  ctx.fill();
+
+  // Rotating rings
   ctx.strokeStyle="#003366";
   ctx.lineWidth=6;
-  ringRotation+=0.02;
+  ringRotation+=0.015;
 
   ctx.save();
   ctx.translate(leftX,eyeY);
   ctx.rotate(ringRotation);
   ctx.beginPath();
-  ctx.arc(0,0,45,0,Math.PI*2);
+  ctx.arc(0,0,55,0,Math.PI*2);
   ctx.stroke();
   ctx.restore();
 
@@ -123,13 +152,13 @@ function draw(){
   ctx.translate(rightX,eyeY);
   ctx.rotate(ringRotation);
   ctx.beginPath();
-  ctx.arc(0,0,45,0,Math.PI*2);
+  ctx.arc(0,0,55,0,Math.PI*2);
   ctx.stroke();
   ctx.restore();
 
-  // Mouth dash tilt animation
+  // Mouth vibration (clear but controlled)
   const mouthY=h*0.65;
-  ctx.lineWidth=8;
+  ctx.lineWidth=12;
 
   let tilt = listening ? amplitude : 0;
 
@@ -138,31 +167,16 @@ function draw(){
   ctx.lineTo(w*0.55,mouthY + tilt/2);
   ctx.stroke();
 
-  // Listening vertical bars
+  // Listening bars
   if(listening){
     ctx.fillStyle="#003366";
-    ctx.fillRect(40,eyeY-40,10,80+amplitude);
-    ctx.fillRect(w-50,eyeY-40,10,80+amplitude);
+    ctx.fillRect(50,eyeY-50,14,110+amplitude/2);
+    ctx.fillRect(w-64,eyeY-50,14,110+amplitude/2);
   }
 
   requestAnimationFrame(draw);
 }
 
-draw();
-</script>
-
-</body>
-</html>  if(speaking) mouthMove = 20;
-
-  ctx.beginPath();
-  ctx.moveTo(w*0.45,mouthY);
-  ctx.lineTo(w*0.55,mouthY+mouthMove);
-  ctx.stroke();
-
-  requestAnimationFrame(draw);
-}
-
-initMic();
 draw();
 </script>
 
