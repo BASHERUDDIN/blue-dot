@@ -1,9 +1,125 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Blue Dot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blue Dot AI</title>
+<style>
+body {
+  margin:0;
+  background:black;
+  overflow:hidden;
+  font-family:Arial;
+}
+canvas {
+  position:absolute;
+  pointer-events:none;
+}
+#startBtn {
+  position:absolute;
+  bottom:40px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:15px 30px;
+  font-size:18px;
+  background:#1e90ff;
+  border:none;
+  border-radius:30px;
+  color:white;
+}
+</style>
 </head>
-<body style="background:black; color:white; text-align:center;">
-  <h1>Blue Dot is Live</h1>
+<body>
+
+<canvas id="canvas"></canvas>
+<button id="startBtn">Start Voice Mode</button>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let amplitude = 0;
+let listening = false;
+let speaking = false;
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
+recognition.continuous = true;
+recognition.interimResults = true;
+
+recognition.onstart = () => listening = true;
+recognition.onend = () => listening = false;
+
+recognition.onresult = (event) => {
+  speaking = true;
+  setTimeout(()=> speaking = false, 1500);
+};
+
+document.getElementById("startBtn").onclick = async () => {
+  recognition.start();
+  document.getElementById("startBtn").style.display="none";
+};
+
+async function initMic() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  const audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(stream);
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  function updateAudio(){
+    analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for(let i=0;i<dataArray.length;i++){
+      const v = (dataArray[i]-128)/128;
+      sum += v*v;
+    }
+    amplitude = Math.sqrt(sum/dataArray.length)*300;
+    requestAnimationFrame(updateAudio);
+  }
+  updateAudio();
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const eyeY = h*0.3;
+
+  ctx.fillStyle="#4da6ff";
+
+  ctx.beginPath();
+  ctx.arc(w*0.4,eyeY,50,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(w*0.6,eyeY,50,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.strokeStyle="#003366";
+  ctx.lineWidth=8;
+
+  const mouthY = h*0.6;
+  let mouthMove = 0;
+
+  if(listening) mouthMove = amplitude;
+  if(speaking) mouthMove = 20;
+
+  ctx.beginPath();
+  ctx.moveTo(w*0.45,mouthY);
+  ctx.lineTo(w*0.55,mouthY+mouthMove);
+  ctx.stroke();
+
+  requestAnimationFrame(draw);
+}
+
+initMic();
+draw();
+</script>
+
 </body>
 </html>
