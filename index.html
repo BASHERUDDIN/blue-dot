@@ -4,26 +4,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blue Dot AI</title>
 <style>
-body {
+body{
   margin:0;
   background:black;
   overflow:hidden;
   font-family:Arial;
 }
-canvas {
+canvas{
   position:absolute;
-  pointer-events:none;
 }
-#startBtn {
+.controls{
   position:absolute;
   bottom:40px;
-  left:50%;
-  transform:translateX(-50%);
-  padding:15px 30px;
-  font-size:18px;
-  background:#1e90ff;
+  width:100%;
+  text-align:center;
+}
+button{
+  padding:12px 25px;
+  margin:5px;
+  font-size:16px;
   border:none;
-  border-radius:30px;
+  border-radius:25px;
+  background:#1e90ff;
   color:white;
 }
 </style>
@@ -31,7 +33,11 @@ canvas {
 <body>
 
 <canvas id="canvas"></canvas>
-<button id="startBtn">Start Voice Mode</button>
+
+<div class="controls">
+  <button onclick="startMic()">Start</button>
+  <button onclick="stopMic()">Stop</button>
+</div>
 
 <script>
 const canvas = document.getElementById("canvas");
@@ -40,74 +46,113 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let amplitude = 0;
+let stream = null;
+let audioContext = null;
+let analyser = null;
+let ringRotation = 0;
 let listening = false;
-let speaking = false;
 
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recognition = new SpeechRecognition();
-recognition.continuous = true;
-recognition.interimResults = true;
-
-recognition.onstart = () => listening = true;
-recognition.onend = () => listening = false;
-
-recognition.onresult = (event) => {
-  speaking = true;
-  setTimeout(()=> speaking = false, 1500);
-};
-
-document.getElementById("startBtn").onclick = async () => {
-  recognition.start();
-  document.getElementById("startBtn").style.display="none";
-};
-
-async function initMic() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-  const audioContext = new AudioContext();
+async function startMic(){
+  stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  audioContext = new AudioContext();
   const source = audioContext.createMediaStreamSource(stream);
-  const analyser = audioContext.createAnalyser();
+  analyser = audioContext.createAnalyser();
   analyser.fftSize = 256;
   source.connect(analyser);
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-  function updateAudio(){
-    analyser.getByteTimeDomainData(dataArray);
-    let sum = 0;
-    for(let i=0;i<dataArray.length;i++){
-      const v = (dataArray[i]-128)/128;
-      sum += v*v;
-    }
-    amplitude = Math.sqrt(sum/dataArray.length)*300;
-    requestAnimationFrame(updateAudio);
-  }
+  listening = true;
   updateAudio();
+}
+
+function stopMic(){
+  if(stream){
+    stream.getTracks().forEach(track=>track.stop());
+  }
+  if(audioContext){
+    audioContext.close();
+  }
+  listening = false;
+  amplitude = 0;
+}
+
+function updateAudio(){
+  if(!analyser) return;
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(dataArray);
+  let sum = 0;
+  for(let i=0;i<dataArray.length;i++){
+    const v=(dataArray[i]-128)/128;
+    sum+=v*v;
+  }
+  amplitude=Math.sqrt(sum/dataArray.length)*150;
+  requestAnimationFrame(updateAudio);
 }
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  const w=canvas.width;
+  const h=canvas.height;
 
-  const w = canvas.width;
-  const h = canvas.height;
-  const eyeY = h*0.3;
+  const eyeY=h*0.35;
+  const leftX=w*0.35;
+  const rightX=w*0.65;
 
+  // Eyes
   ctx.fillStyle="#4da6ff";
-
   ctx.beginPath();
-  ctx.arc(w*0.4,eyeY,50,0,Math.PI*2);
+  ctx.arc(leftX,eyeY,60,0,Math.PI*2);
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(w*0.6,eyeY,50,0,Math.PI*2);
+  ctx.arc(rightX,eyeY,60,0,Math.PI*2);
   ctx.fill();
 
+  // Dark rotating rings
   ctx.strokeStyle="#003366";
+  ctx.lineWidth=6;
+  ringRotation+=0.02;
+
+  ctx.save();
+  ctx.translate(leftX,eyeY);
+  ctx.rotate(ringRotation);
+  ctx.beginPath();
+  ctx.arc(0,0,45,0,Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(rightX,eyeY);
+  ctx.rotate(ringRotation);
+  ctx.beginPath();
+  ctx.arc(0,0,45,0,Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Mouth dash tilt animation
+  const mouthY=h*0.65;
   ctx.lineWidth=8;
 
-  const mouthY = h*0.6;
-  let mouthMove = 0;
+  let tilt = listening ? amplitude : 0;
 
-  if(listening) mouthMove = amplitude;
-  if(speaking) mouthMove = 20;
+  ctx.beginPath();
+  ctx.moveTo(w*0.45,mouthY - tilt/2);
+  ctx.lineTo(w*0.55,mouthY + tilt/2);
+  ctx.stroke();
+
+  // Listening vertical bars
+  if(listening){
+    ctx.fillStyle="#003366";
+    ctx.fillRect(40,eyeY-40,10,80+amplitude);
+    ctx.fillRect(w-50,eyeY-40,10,80+amplitude);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+
+</body>
+</html>  if(speaking) mouthMove = 20;
 
   ctx.beginPath();
   ctx.moveTo(w*0.45,mouthY);
