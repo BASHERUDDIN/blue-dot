@@ -1,113 +1,102 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blue Dot AI</title>
-<style>
-body{
-  margin:0;
-  background:black;
-  overflow:hidden;
-}
-canvas{
-  position:absolute;
-}
-.controls{
-  position:absolute;
-  bottom:40px;
-  width:100%;
-  text-align:center;
-}
-button{
-  padding:12px 25px;
-  margin:5px;
-  font-size:16px;
-  border:none;
-  border-radius:25px;
-  background:#1e90ff;
-  color:white;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>Blue Eyes</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      display: flex;
+      gap: 60px;
+    }
+
+    .eye {
+      width: 180px;
+      height: 180px;
+      background: #007BFF;
+      border-radius: 50%;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, height 0.2s ease;
+    }
+
+    .pupil {
+      width: 60px;
+      height: 60px;
+      background: black;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.3s ease;
+    }
+  </style>
 </head>
 <body>
 
-<canvas id="canvas"></canvas>
-
-<div class="controls">
-  <button onclick="startSystem()">Start System</button>
-  <button onclick="stopSystem()">Stop</button>
+<div class="container">
+  <div class="eye"><div class="pupil"></div></div>
+  <div class="eye"><div class="pupil"></div></div>
 </div>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+  const eyes = document.querySelectorAll(".eye");
+  const pupils = document.querySelectorAll(".pupil");
 
-/* ================= STATE ================= */
+  function randomMove() {
+    pupils.forEach(pupil => {
+      const x = (Math.random() - 0.5) * 60;
+      const y = (Math.random() - 0.5) * 60;
+      pupil.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    });
 
-let stream=null;
-let audioContext=null;
-let analyser=null;
-let recognition=null;
+    // Random size scaling
+    const scale = 0.9 + Math.random() * 0.3;
+    eyes.forEach(eye => {
+      eye.style.transform = `scale(${scale})`;
+    });
 
-let micAmplitude=0;
-let mouthAmplitude=0;
-let ringRotation=0;
-
-let state="idle"; 
-// idle | listening | thinking | speaking
-
-let pupilTargetX=0;
-let pupilTargetY=0;
-let pupilX=0;
-let pupilY=0;
-
-/* ================= SPEECH RECOGNITION ================= */
-
-function initSpeech(){
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SpeechRecognition){
-    alert("Use Chromium browser.");
-    return;
+    // Random squint
+    if (Math.random() < 0.3) {
+      eyes.forEach(eye => {
+        eye.style.height = "80px";
+      });
+      setTimeout(() => {
+        eyes.forEach(eye => {
+          eye.style.height = "180px";
+        });
+      }, 200);
+    }
   }
 
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = false;
-  recognition.lang="en-US";
+  function blink() {
+    eyes.forEach(eye => {
+      eye.style.height = "10px";
+    });
 
-  recognition.onresult=function(event){
-    const last=event.results.length-1;
-    let text=event.results[last][0].transcript.toLowerCase().trim();
-    handleCommand(text);
-  };
-
-  recognition.onerror=function(e){
-    console.log("Speech error:",e);
-  };
-}
-
-function handleCommand(text){
-  console.log("Command:",text);
-
-  if(text.includes("speak")){
-    startSpeaking();
+    setTimeout(() => {
+      eyes.forEach(eye => {
+        eye.style.height = "180px";
+      });
+    }, 150);
   }
 
-  if(text.includes("think")){
-    startThinking();
-  }
+  setInterval(randomMove, 2000);
+  setInterval(blink, 4000);
+</script>
 
-  if(text.includes("listen")){
-    state="listening";
-  }
-
-  if(text.includes("stop")){
-    stopSystem();
-  }
-}
-
+</body>
+</html>
 /* ================= SYSTEM CONTROL ================= */
 
 async function startSystem(){
